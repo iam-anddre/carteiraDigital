@@ -2,30 +2,38 @@
 #define MEUBANCO_H
 
 #define MAX_NOME 100
-#define MAX_HISTORICO 100
+#define MAX_HISTORICO 1000
 
-typedef struct {
-    char numero[16];
-    int codigo;
-    int tipo;
+typedef struct
+{
+    char numero[1];
+    int tipo; // Corrente, Salario, Poupanca
     float saldo;
     char historico[MAX_HISTORICO];
 } Conta;
 
-typedef struct {
+typedef struct
+{
     int id;
     char nome[MAX_NOME];
     Conta *contas;
     int quantidadeContas;
+    int possuiEmprestimo;
+    float valorEmprestimo;
 } Cliente;
 
-void cadastrarCliente();
-void abrirConta();
-void listarClientes();
-void consultarSaldo();
-void depositar();
-void sacar();
-void solicitarEmprestimo();
+extern int bancoAberto;
+
+int ler(const char *msg, const char *formato, void *destino);
+void cadastrarCliente(void);
+void abrirConta(void);
+void listarClientes(void);
+void consultarSaldo(void);
+void depositar(void);
+void sacar(void);
+void solicitarEmprestimo(void);
+void historico(void);
+void sortearCliente(void);
 void liberarMemoria(void);
 
 #endif
