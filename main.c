@@ -1,13 +1,11 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <time.h>
 #include "meuBanco.h"
 #include "banco.c"
 
 int main(void)
 {
     int opcao = 0;
-    srand(time(NULL));
 
     do
     {
