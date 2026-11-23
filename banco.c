@@ -1,206 +1,277 @@
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include "meuBanco.h"
 
 Cliente *clientes = NULL;
+int quantidadeClientes = 0, proximoId = 1, sequencialConta = 1;
+int bancoAberto = 0;
+const char *TIPOS[] = {"", "Corrente", "Salario", "Poupanca"};
 
-int quantidadeClientes = 0;
-int proximoId = 1;
-int sequencialConta = 1;
+// Le um valor com scanf; retorna 1 se leu, 0 se a entrada foi invalida
+int ler(const char *msg, const char *formato, void *destino)
+{
+    printf("%s", msg);
 
-//CADASTRAR CLIENTE
-void cadastrarCliente() {
+    int r = scanf(formato, destino);
 
-    Cliente *temp = realloc(
-        clientes,
-        (quantidadeClientes + 1) * sizeof(Cliente)
-    );
+    if (r != 1)
+    {
+        printf("Entrada invalida!\n");
 
-    if (temp == NULL) {
+        for (int c; (c = getchar()) != '\n' && c != EOF;)
+            ;
+
+        return 0;
+    }
+
+    return 1;
+}
+
+// Acrescenta uma linha ao historico
+void registrar(Conta *conta, const char *evento, float valor)
+{
+    char linha[64];
+    snprintf(linha, sizeof linha, "%s: R$ %.2f\n", evento, valor);
+    strncat(conta->historico, linha, MAX_HISTORICO - strlen(conta->historico) - 1);
+}
+
+// Pede o ID
+Cliente *buscarCliente(void)
+{
+    int id;
+    if (!ler("Digite o ID do cliente: ", "%d", &id))
+        return NULL;
+
+    for (int i = 0; i < quantidadeClientes; i++)
+        if (clientes[i].id == id)
+            return &clientes[i];
+
+    printf("Cliente nao encontrado!\n");
+    return NULL;
+}
+
+Conta *contaDoTipo(Cliente *cliente, int tipo)
+{
+    for (int j = 0; j < cliente->quantidadeContas; j++)
+        if (cliente->contas[j].tipo == tipo)
+            return &cliente->contas[j];
+    return NULL;
+}
+
+Conta *pedirConta(void)
+{
+    int tipo;
+    Cliente *cliente = buscarCliente();
+
+    if (!cliente || !ler("Tipo da conta (1 - Corrente, 2 - Salario, 3 - Poupanca): ", "%d", &tipo))
+        return NULL;
+
+    if (tipo < 1 || tipo > 3)
+    {
+        printf("Tipo invalido!\n");
+        return NULL;
+    }
+
+    Conta *conta = contaDoTipo(cliente, tipo);
+    if (!conta)
+        printf("Conta nao encontrada!\n");
+    return conta;
+}
+Conta *aptoEmprestimo(Cliente *cliente, float *limite)
+{
+    float total = 0;
+    int temPoupanca = 0;
+
+    for (int j = 0; j < cliente->quantidadeContas; j++)
+    {
+        total += cliente->contas[j].saldo;
+        if (cliente->contas[j].tipo == 3 && cliente->contas[j].saldo > 0)
+            temPoupanca = 1;
+    }
+
+    *limite = total * 0.25f * 10;
+    Conta *corrente = contaDoTipo(cliente, 1);
+    return (!cliente->possuiEmprestimo && corrente && temPoupanca) ? corrente : NULL;
+}
+
+void cadastrarCliente(void)
+{
+    Cliente *temp = realloc(clientes, (quantidadeClientes + 1) * sizeof(Cliente));
+    if (!temp)
+    {
         printf("Erro de memoria!\n");
         return;
     }
-
     clientes = temp;
 
     Cliente *novo = &clientes[quantidadeClientes];
-
-    novo->id = proximoId++;
+    *novo = (Cliente){.id = proximoId}; // zera contas, emprestimo, etc.
 
     printf("Nome do cliente: ");
-    scanf(" %99[^\n]", novo->nome);
+    if (scanf(" %99[^\n]", novo->nome) != 1)
+        return;
 
-    novo->contas = NULL;
-    novo->quantidadeContas = 0;
-
+    proximoId++;
     quantidadeClientes++;
-
-    printf("\nCliente cadastrado!\n");
-    printf("ID: %d\n", novo->id);
+    printf("\nCliente cadastrado!\nID: %d\n", novo->id);
 }
 
-//ABRIR CONTA
-void abrirConta() {
+void abrirConta(void)
+{
+    int tipo;
+    Cliente *cliente = buscarCliente();
 
-    int id, tipo;
-    int encontrado = -1;
-
-    printf("Digite o ID do cliente: ");
-    scanf("%d", &id);
-
-    for (int i = 0; i < quantidadeClientes; i++) {
-
-        if (clientes[i].id == id) {
-            encontrado = i;
-            break;
-        }
-    }
-
-    if (encontrado == -1) {
-        printf("Cliente nao encontrado!\n");
+    if (!cliente || !ler("\n1 - Corrente\n2 - Salario\n3 - Poupanca\nEscolha o tipo: ", "%d", &tipo))
         return;
-    }
 
-    printf("\n1 - Corrente");
-    printf("\n2 - Salario");
-    printf("\n3 - Poupanca");
-    printf("\nEscolha o tipo: ");
-
-    scanf("%d", &tipo);
-
-    if (tipo < 1 || tipo > 3) {
+    if (tipo < 1 || tipo > 3)
+    {
         printf("Tipo invalido!\n");
         return;
     }
+    if (contaDoTipo(cliente, tipo))
+    {
+        printf("O cliente ja possui uma conta desse tipo!\n");
+        return;
+    }
 
-    Cliente *cliente = &clientes[encontrado];
-
-    Conta *temp = realloc(
-        cliente->contas,
-        (cliente->quantidadeContas + 1) * sizeof(Conta)
-    );
-
-    if (temp == NULL) {
+    Conta *temp = realloc(cliente->contas, (cliente->quantidadeContas + 1) * sizeof(Conta));
+    if (!temp)
+    {
         printf("Erro de memoria!\n");
         return;
     }
-
     cliente->contas = temp;
 
-    Conta *nova = &cliente->contas[cliente->quantidadeContas];
-
-    int base = 1000 + (sequencialConta - 1) / 99;
-    int codigo = (sequencialConta - 1) % 99 + 1;
-
-    snprintf(nova->numero, sizeof(nova->numero),
-             "%d-%02d", base, codigo);
-
+    Conta *nova = &cliente->contas[cliente->quantidadeContas++];
+    *nova = (Conta){.tipo = tipo};
+    snprintf(nova->numero, sizeof nova->numero, "%d-%02d",
+             1000 + (sequencialConta - 1) / 99, (sequencialConta - 1) % 99 + 1);
     sequencialConta++;
-
-    nova->tipo = tipo;
-    nova->saldo = 0;
-
     strcpy(nova->historico, "Conta criada.\n");
 
-    cliente->quantidadeContas++;
-
-    printf("\nConta criada com sucesso!\n");
-    printf("Numero: %s\n", nova->numero);
+    printf("\nConta criada com sucesso!\nNumero: %s\n", nova->numero);
 }
 
-//LISTAR CLIENTES
-void listarClientes() {
-
-    if (quantidadeClientes == 0) {
+void listarClientes(void)
+{
+    if (!quantidadeClientes)
         printf("Nenhum cliente cadastrado!\n");
-        return;
-    }
 
-    for (int i = 0; i < quantidadeClientes; i++) {
+    for (int i = 0; i < quantidadeClientes; i++)
+    {
+        printf("ID: %d\nNome: %s\n", clientes[i].id, clientes[i].nome);
 
-        printf("ID: %d\n", clientes[i].id);
-        printf("Nome: %s\n", clientes[i].nome);
-
-        for (int j = 0;
-             j < clientes[i].quantidadeContas; j++) {
-
+        for (int j = 0; j < clientes[i].quantidadeContas; j++)
+        {
             Conta *conta = &clientes[i].contas[j];
-
-            printf("\nConta: %s\n", conta->numero);
-
-            if (conta->tipo == 1)
-                printf("Tipo: Corrente\n");
-
-            else if (conta->tipo == 2)
-                printf("Tipo: Salario\n");
-
-            else
-                printf("Tipo: Poupanca\n");
-
-            printf("Saldo: R$ %.2f\n", conta->saldo);
+            printf("\nConta: %s\nTipo: %s\nSaldo: R$ %.2f\n", conta->numero, TIPOS[conta->tipo], conta->saldo);
         }
     }
 }
 
-//CONSULTAR SALDO
-void consultarSaldo() {
-    int id, tipo;
-    int encontrado = -1;
-
-    printf("Digite o ID do cliente: ");
-    scanf("%d", &id);
-
-    printf("Digite o tipo da conta (1 - Corrente, 2 - Salario, 3 - Poupanca): ");
-    scanf("%d", &tipo);
-
-    if (tipo < 1 || tipo > 3) {
-        printf("Tipo invalido!\n");
-        return;
-    }
-
-    for (int i = 0; i < quantidadeClientes; i++) {
-        if (clientes[i].id == id) {
-            encontrado = i;
-            break;
-        }
-    }
-
-    if (encontrado == -1) {
-        printf("Cliente nao encontrado!\n");
-        return;
-    }
-
-    Cliente *cliente = &clientes[encontrado];
-
-    for (int j = 0; j < cliente->quantidadeContas; j++) {
-        Conta *conta = &cliente->contas[j];
-
-        if (conta->tipo == tipo) {
-            printf("Saldo: R$ %.2f\n", conta->saldo);
-            return;
-        }
-    }
-
-    printf("Conta nao encontrada!\n");
+void consultarSaldo(void)
+{
+    Conta *conta = pedirConta();
+    if (conta)
+        printf("Conta: %s\nSaldo: R$ %.2f\nHistorico:\n%s", conta->numero, conta->saldo, conta->historico);
 }
 
-//DEPOSITAR
-void depositar() {}
+// Deposito a
+void movimentar(int saque)
+{
+    float valor;
+    Conta *conta = pedirConta();
 
-//SACAR
-void sacar() {}
+    if (!conta || !ler(saque ? "Qual o valor para sacar? " : "Qual o valor a ser depositado? ", "%f", &valor))
+        return;
 
-//SOLICITAR EMPRESTIMO
-void solicitarEmprestimo() {}
+    if (valor <= 0)
+    {
+        printf("Insira um valor valido!\n");
+        return;
+    }
+    if (saque && valor > conta->saldo)
+    {
+        printf("Saldo insuficiente!\n");
+        return;
+    }
 
-//LIBERAR MEMORIA
-void liberarMemoria(void) {
+    conta->saldo += saque ? -valor : valor;
+    registrar(conta, saque ? "Saque" : "Deposito", valor);
+    printf("%s realizado com sucesso!\nNovo saldo: R$ %.2f\n", saque ? "Saque" : "Deposito", conta->saldo);
+}
 
-    for (int i = 0; i < quantidadeClientes; i++) {
+void depositar(void) { movimentar(0); }
+void sacar(void) { movimentar(1); }
+
+void solicitarEmprestimo(void)
+{
+    float limite, valor;
+    Cliente *cliente = buscarCliente();
+    if (!cliente)
+        return;
+
+    Conta *corrente = aptoEmprestimo(cliente, &limite);
+    if (!corrente)
+    {
+        printf("O cliente nao pode solicitar emprestimo!\n");
+        return;
+    }
+
+    printf("Limite maximo de emprestimo: R$ %.2f\n", limite);
+    if (!ler("Qual o valor que voce deseja solicitar? ", "%f", &valor))
+        return;
+
+    if (valor <= 0 || valor > limite)
+    {
+        printf("Emprestimo invalido!\n");
+        return;
+    }
+
+    corrente->saldo += valor;
+    cliente->possuiEmprestimo = 1;
+    cliente->valorEmprestimo = valor;
+    registrar(corrente, "Emprestimo", valor);
+
+    printf("Emprestimo aprovado!\nValor liberado: R$ %.2f\nNovo saldo da conta corrente: R$ %.2f\n",
+           valor, corrente->saldo);
+}
+
+// HISTORICO DO BANCO:
+void historico(void)
+{
+    float total = 0, limite;
+
+    for (int i = 0; i < quantidadeClientes; i++)
+        for (int j = 0; j < clientes[i].quantidadeContas; j++)
+            total += clientes[i].contas[j].saldo;
+
+    printf("\n== Saldo Total do banco ==\n%d | R$ %.2f\n", quantidadeClientes, total);
+    printf("\n== Clientes Aptos a Empréstimos ==\n");
+
+    for (int i = 0; i < quantidadeClientes; i++)
+    {
+        Conta *corrente = aptoEmprestimo(&clientes[i], &limite);
+        if (corrente)
+            printf("%s|%s|%.2f\n", clientes[i].nome, corrente->numero, limite);
+    }
+}
+
+void sortearCliente(void)
+{
+    if (!quantidadeClientes)
+        printf("\nNao existem clientes cadastrados!\n");
+    else
+        printf("\nCliente sorteado: %s\n", clientes[rand() % quantidadeClientes].nome);
+}
+
+void liberarMemoria(void)
+{
+    for (int i = 0; i < quantidadeClientes; i++)
         free(clientes[i].contas);
-    }
-
     free(clientes);
+    clientes = NULL;
+    quantidadeClientes = 0;
 }
