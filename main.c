@@ -20,7 +20,9 @@ int main(void)
                "\n8 - Solicitar emprestimo"
                "\n9 - Sair"
                "\n10 - Historico do banco"
-               "\n11 - Sortear cliente\n");
+               "\n11 - Sortear entre os 5 maiores saldos"
+               "\n12 - Comprar titulo de capitalizacao\n");
+
 
         if (!ler("\nEscolha uma opcao: ", "%d", &opcao))
             continue;
@@ -67,6 +69,8 @@ int main(void)
         case 11:
             sortearCliente();
             break;
+        case 12:
+            comprarTitulos();
         default:
             printf("\nOpcao invalida!\n");
         }
