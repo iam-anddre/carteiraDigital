@@ -267,6 +267,92 @@ void sortearCliente(void)
         printf("\nCliente sorteado: %s\n", clientes[rand() % quantidadeClientes].nome);
 }
 
+// Fibonacci recursivo: 0, 1, 1, 2, 3, 5...
+static int fibonacci(int n)
+{
+    return n < 2 ? n : fibonacci(n - 1) + fibonacci(n - 2);
+}
+
+static float saldoTotal(Cliente *cliente)
+{
+    float total = 0;
+    for (int j = 0; j < cliente->quantidadeContas; j++)
+        total += cliente->contas[j].saldo;
+    return total;
+}
+
+void comprarTitulo(void)
+{
+    Cliente *cliente = buscarCliente();
+    if (!cliente)
+        return;
+
+    if (cliente->possuiTitulo)
+        printf("O cliente ja possui titulo de capitalizacao!\n");
+    else
+    {
+        cliente->possuiTitulo = 1;
+        printf("Titulo de capitalizacao adquirido por %s!\n", cliente->nome);
+    }
+}
+
+// SORTEIO: 5 maiores saldos, todos precisam ter titulo.
+// Peso de cada um = Fibonacci: 1o lugar = 5, 2o = 3, 3o = 2, 4o = 1, 5o = 1 (total 12)
+void sortearCliente(void)
+{
+    if (quantidadeClientes < 5)
+    {
+        printf("\nSao necessarios pelo menos 5 clientes para o sorteio!\n");
+        return;
+    }
+
+    Cliente *top[5];
+    int usado[quantidadeClientes];
+    memset(usado, 0, sizeof usado);
+
+    for (int k = 0; k < 5; k++) // escolhe o maior saldo ainda nao escolhido
+    {
+        int melhor = -1;
+        for (int i = 0; i < quantidadeClientes; i++)
+            if (!usado[i] && (melhor < 0 || saldoTotal(&clientes[i]) > saldoTotal(&clientes[melhor])))
+                melhor = i;
+        usado[melhor] = 1;
+        top[k] = &clientes[melhor];
+    }
+
+    int semTitulo = 0;
+    printf("\n== 5 maiores saldos ==\n");
+    for (int k = 0; k < 5; k++)
+    {
+        printf("%do) %s | R$ %.2f | Titulo: %s | Peso: %d\n", k + 1, top[k]->nome,
+               saldoTotal(top[k]), top[k]->possuiTitulo ? "Sim" : "Nao", fibonacci(5 - k));
+        if (!top[k]->possuiTitulo)
+            semTitulo = 1;
+    }
+
+    if (semTitulo)
+    {
+        printf("\nSorteio cancelado: todos os participantes precisam ter titulo de capitalizacao!\n");
+        return;
+    }
+
+    int somaPesos = 0;
+    for (int k = 0; k < 5; k++)
+        somaPesos += fibonacci(5 - k);
+
+    int numero = rand() % somaPesos, acumulado = 0;
+    for (int k = 0; k < 5; k++)
+    {
+        acumulado += fibonacci(5 - k);
+        if (numero < acumulado)
+        {
+            printf("\nNumero sorteado: %d de %d\nCliente sorteado: %s\n", numero + 1, somaPesos, top[k]->nome);
+            return;
+        }
+    }
+}
+
+
 void liberarMemoria(void)
 {
     for (int i = 0; i < quantidadeClientes; i++)
