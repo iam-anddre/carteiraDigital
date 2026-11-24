@@ -20,6 +20,9 @@ typedef struct
     int quantidadeContas;
     int possuiEmprestimo;
     float valorEmprestimo;
+    int possuiEmprestimo;
+    float valorEmprestimo;
+    int possuiTitulo;
 } Cliente;
 
 extern int bancoAberto;
@@ -35,5 +38,8 @@ void solicitarEmprestimo(void);
 void historico(void);
 void sortearCliente(void);
 void liberarMemoria(void);
+void comprarTitulo(void);
+void sortearCliente(void);
+
 
 #endif
